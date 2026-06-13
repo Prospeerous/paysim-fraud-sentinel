@@ -53,14 +53,14 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
           <div>
-            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Step (hour)</label>
+            <label for="step" class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Step (hour)</label>
             <input type="number" id="step" min="1" required
               class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="e.g. 1"/>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Transaction Type</label>
+            <label for="type" class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Transaction Type</label>
             <select id="type" required
               class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
               <option value="">Select type…</option>
@@ -70,35 +70,35 @@
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Amount</label>
+            <label for="amount" class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Amount</label>
             <input type="number" id="amount" min="0" step="0.01" required
               class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="0.00"/>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Old Balance (Sender)</label>
+            <label for="oldbalanceOrg" class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Old Balance (Sender)</label>
             <input type="number" id="oldbalanceOrg" min="0" step="0.01" required
               class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="0.00"/>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">New Balance (Sender)</label>
+            <label for="newbalanceOrig" class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">New Balance (Sender)</label>
             <input type="number" id="newbalanceOrig" min="0" step="0.01" required
               class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="0.00"/>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Old Balance (Recipient)</label>
+            <label for="oldbalanceDest" class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Old Balance (Recipient)</label>
             <input type="number" id="oldbalanceDest" min="0" step="0.01" required
               class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="0.00"/>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">New Balance (Recipient)</label>
+            <label for="newbalanceDest" class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">New Balance (Recipient)</label>
             <input type="number" id="newbalanceDest" min="0" step="0.01" required
               class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="0.00"/>
@@ -213,6 +213,13 @@
 </main>
 
 <script>
+// ── XSS escape helper ─────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 function switchTab(tab) {
   ["single","batch"].forEach(t => {
@@ -248,7 +255,10 @@ async function submitSingle(e) {
     if (!res.ok) throw new Error(data.detail || "Prediction failed.");
     renderResult(data);
   } catch (ex) {
-    errEl.textContent = ex.message;
+    const msg = ex instanceof TypeError
+      ? "Network error — is the server running?"
+      : ex.message;
+    errEl.textContent = msg;
     errEl.classList.remove("hidden");
   } finally {
     setLoading("single", false);
@@ -287,13 +297,19 @@ function handleFile(input) {
   document.getElementById("file-name").textContent = selectedFile?.name ?? "";
   const btn = document.getElementById("batch-btn");
   btn.disabled = !selectedFile;
-  btn.classList.toggle("opacity-50",       !selectedFile);
-  btn.classList.toggle("cursor-not-allowed", !selectedFile);
+  if (selectedFile) {
+    btn.classList.remove("opacity-50", "cursor-not-allowed");
+    btn.classList.add("hover:bg-navy-700", "cursor-pointer");
+  } else {
+    btn.classList.add("opacity-50", "cursor-not-allowed");
+    btn.classList.remove("hover:bg-navy-700", "cursor-pointer");
+  }
 }
 
 async function submitBatch() {
   const errEl = document.getElementById("batch-error");
   errEl.classList.add("hidden");
+  document.getElementById("batch-results").classList.add("hidden");
   if (!selectedFile) return;
   setLoading("batch", true);
   try {
@@ -305,7 +321,10 @@ async function submitBatch() {
     batchData = data;
     renderBatch(data);
   } catch (ex) {
-    errEl.textContent = ex.message;
+    const msg = ex instanceof TypeError
+      ? "Network error — is the server running?"
+      : ex.message;
+    errEl.textContent = msg;
     errEl.classList.remove("hidden");
   } finally {
     setLoading("batch", false);
@@ -313,19 +332,23 @@ async function submitBatch() {
 }
 
 function renderBatch(rows) {
-  if (!rows.length) return;
+  if (!rows.length) {
+    document.getElementById("batch-count").textContent = "0 transactions — nothing to display";
+    document.getElementById("batch-results").classList.remove("hidden");
+    return;
+  }
   const keys = Object.keys(rows[0]);
   document.getElementById("batch-head").innerHTML =
-    keys.map(k => `<th class="px-3 py-2 text-left whitespace-nowrap">${k}</th>`).join("");
+    keys.map(k => `<th class="px-3 py-2 text-left whitespace-nowrap">${esc(k)}</th>`).join("");
   document.getElementById("batch-body").innerHTML =
     rows.map(row => {
       const bg = row.is_fraud ? "bg-red-50" : "bg-green-50";
       return `<tr class="${bg} border-b border-slate-100">${
         keys.map(k => {
           let v = row[k];
-          if (k === "fraud_probability") v = (v * 100).toFixed(1) + "%";
+          if (k === "fraud_probability") v = (parseFloat(v) * 100).toFixed(1) + "%";
           if (k === "is_fraud")          v = v ? "FRAUD" : "LEGITIMATE";
-          return `<td class="px-3 py-2 whitespace-nowrap">${v}</td>`;
+          return `<td class="px-3 py-2 whitespace-nowrap">${esc(v)}</td>`;
         }).join("")
       }</tr>`;
     }).join("");
@@ -344,6 +367,7 @@ function downloadCSV() {
     download: "fraud_predictions.csv",
   });
   a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
