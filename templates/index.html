@@ -1,1 +1,358 @@
-<!DOCTYPE html><html><body><h1>Fraud Detector — coming soon</h1></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fraud Detector</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: {
+        navy: { 900:"#0f172a", 800:"#1e293b", 700:"#334155" }
+      }}}
+    }
+  </script>
+</head>
+<body class="bg-slate-100 min-h-screen font-sans">
+
+<!-- HEADER -->
+<header class="bg-navy-900 text-white px-8 py-4 flex items-center gap-3 shadow-lg">
+  <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+      d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955
+         11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824
+         10.29 9 11.622 5.176-1.332 9-6.03 9-11.622
+         0-1.042-.133-2.052-.382-3.016z"/>
+  </svg>
+  <div>
+    <h1 class="text-xl font-bold tracking-wide">Mobile Money Fraud Detector</h1>
+    <p class="text-xs text-slate-400">PaySim · Random Forest · PR-AUC 0.997</p>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main class="max-w-4xl mx-auto px-4 py-8">
+
+  <!-- TABS -->
+  <div class="flex gap-1 mb-6 bg-white rounded-xl p-1 w-fit shadow-sm border border-slate-200">
+    <button id="tab-single" onclick="switchTab('single')"
+      class="px-5 py-2 rounded-lg text-sm font-medium bg-navy-900 text-white shadow transition-all">
+      Single Transaction
+    </button>
+    <button id="tab-batch" onclick="switchTab('batch')"
+      class="px-5 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-all">
+      Batch Upload
+    </button>
+  </div>
+
+  <!-- SINGLE PANEL -->
+  <div id="panel-single">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-800 mb-5">Transaction Details</h2>
+      <form id="single-form" onsubmit="submitSingle(event)">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Step (hour)</label>
+            <input type="number" id="step" min="1" required
+              class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="e.g. 1"/>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Transaction Type</label>
+            <select id="type" required
+              class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+              <option value="">Select type…</option>
+              <option>CASH_IN</option><option>CASH_OUT</option>
+              <option>DEBIT</option><option>PAYMENT</option><option>TRANSFER</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Amount</label>
+            <input type="number" id="amount" min="0" step="0.01" required
+              class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="0.00"/>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Old Balance (Sender)</label>
+            <input type="number" id="oldbalanceOrg" min="0" step="0.01" required
+              class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="0.00"/>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">New Balance (Sender)</label>
+            <input type="number" id="newbalanceOrig" min="0" step="0.01" required
+              class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="0.00"/>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Old Balance (Recipient)</label>
+            <input type="number" id="oldbalanceDest" min="0" step="0.01" required
+              class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="0.00"/>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">New Balance (Recipient)</label>
+            <input type="number" id="newbalanceDest" min="0" step="0.01" required
+              class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="0.00"/>
+          </div>
+
+        </div>
+
+        <div id="single-error"
+          class="hidden mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700"></div>
+
+        <button type="submit" id="single-btn"
+          class="mt-6 w-full bg-navy-900 hover:bg-navy-700 text-white font-semibold py-3
+                 rounded-xl transition-all flex items-center justify-center gap-2">
+          <span id="single-btn-text">Analyse Transaction</span>
+          <svg id="single-spinner" class="hidden animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+          </svg>
+        </button>
+      </form>
+
+      <!-- RESULT -->
+      <div id="result-panel" class="hidden mt-8 border-t border-slate-200 pt-6">
+        <h3 class="text-base font-semibold text-slate-700 mb-4">Analysis Result</h3>
+        <div class="mb-4">
+          <div class="flex justify-between text-xs text-slate-500 mb-1">
+            <span>Fraud Probability</span>
+            <span id="prob-label">—</span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
+            <div id="prob-bar" class="h-4 rounded-full transition-all duration-700" style="width:0%"></div>
+          </div>
+        </div>
+        <div id="risk-badge" class="text-center py-4 rounded-xl font-bold text-lg tracking-wide mb-4"></div>
+        <table class="w-full text-sm">
+          <tbody>
+            <tr class="border-b border-slate-100">
+              <td class="py-2 text-slate-500 font-medium">Fraud Probability</td>
+              <td class="py-2 text-right font-mono font-semibold" id="detail-prob">—</td>
+            </tr>
+            <tr class="border-b border-slate-100">
+              <td class="py-2 text-slate-500 font-medium">Decision Threshold</td>
+              <td class="py-2 text-right font-mono" id="detail-thr">—</td>
+            </tr>
+            <tr>
+              <td class="py-2 text-slate-500 font-medium">Decision</td>
+              <td class="py-2 text-right font-semibold" id="detail-dec">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- BATCH PANEL -->
+  <div id="panel-batch" class="hidden">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-800 mb-2">Batch Upload</h2>
+      <p class="text-sm text-slate-500 mb-5">
+        Upload a CSV with columns:
+        <code class="bg-slate-100 px-1 rounded text-xs">
+          step, type, amount, oldbalanceOrg, newbalanceOrig, oldbalanceDest, newbalanceDest
+        </code>
+      </p>
+
+      <label for="csv-input"
+        class="flex flex-col items-center justify-center border-2 border-dashed
+               border-slate-300 rounded-xl p-10 cursor-pointer
+               hover:border-blue-400 hover:bg-blue-50 transition-all">
+        <svg class="w-10 h-10 text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011
+               9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+        </svg>
+        <span class="text-sm font-medium text-slate-600">Drop CSV here or click to browse</span>
+        <span id="file-name" class="text-xs text-slate-400 mt-1"></span>
+        <input type="file" id="csv-input" accept=".csv" class="hidden" onchange="handleFile(this)"/>
+      </label>
+
+      <div id="batch-error"
+        class="hidden mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700"></div>
+
+      <button id="batch-btn" onclick="submitBatch()" disabled
+        class="mt-5 w-full bg-navy-900 text-white font-semibold py-3 rounded-xl
+               transition-all flex items-center justify-center gap-2 opacity-50 cursor-not-allowed">
+        <span id="batch-btn-text">Analyse Batch</span>
+        <svg id="batch-spinner" class="hidden animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+        </svg>
+      </button>
+
+      <div id="batch-results" class="hidden mt-8">
+        <div class="flex justify-between items-center mb-3">
+          <h3 class="font-semibold text-slate-700"><span id="batch-count"></span></h3>
+          <button onclick="downloadCSV()" class="text-sm text-blue-600 hover:underline font-medium">
+            Download CSV
+          </button>
+        </div>
+        <div class="overflow-x-auto rounded-xl border border-slate-200">
+          <table class="w-full text-xs">
+            <thead class="bg-slate-50 text-slate-500 uppercase tracking-wide">
+              <tr id="batch-head"></tr>
+            </thead>
+            <tbody id="batch-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  ["single","batch"].forEach(t => {
+    document.getElementById("panel-" + t).classList.toggle("hidden", t !== tab);
+    const btn = document.getElementById("tab-" + t);
+    btn.className = t === tab
+      ? "px-5 py-2 rounded-lg text-sm font-medium bg-navy-900 text-white shadow transition-all"
+      : "px-5 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-all";
+  });
+}
+
+// ── Single ────────────────────────────────────────────────────────────────────
+async function submitSingle(e) {
+  e.preventDefault();
+  const errEl = document.getElementById("single-error");
+  errEl.classList.add("hidden");
+  setLoading("single", true);
+  try {
+    const res = await fetch("/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        step:           parseInt(document.getElementById("step").value),
+        type:           document.getElementById("type").value,
+        amount:         parseFloat(document.getElementById("amount").value),
+        oldbalanceOrg:  parseFloat(document.getElementById("oldbalanceOrg").value),
+        newbalanceOrig: parseFloat(document.getElementById("newbalanceOrig").value),
+        oldbalanceDest: parseFloat(document.getElementById("oldbalanceDest").value),
+        newbalanceDest: parseFloat(document.getElementById("newbalanceDest").value),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Prediction failed.");
+    renderResult(data);
+  } catch (ex) {
+    errEl.textContent = ex.message;
+    errEl.classList.remove("hidden");
+  } finally {
+    setLoading("single", false);
+  }
+}
+
+function renderResult(data) {
+  const pct  = Math.round(data.fraud_probability * 100);
+  const risk = pct < 30 ? "LOW" : pct < 70 ? "MEDIUM" : "HIGH";
+  const cfg  = {
+    LOW:    { bar:"bg-green-500",  badge:"bg-green-50 text-green-800",   dec:"text-green-700",  label:"LOW RISK — LEGITIMATE" },
+    MEDIUM: { bar:"bg-yellow-400", badge:"bg-yellow-50 text-yellow-800", dec:"text-yellow-700", label:"MEDIUM RISK — MONITOR" },
+    HIGH:   { bar:"bg-red-500",    badge:"bg-red-50 text-red-800",       dec:"text-red-700",    label:"HIGH RISK — FRAUD DETECTED" },
+  }[risk];
+
+  document.getElementById("prob-bar").style.width    = pct + "%";
+  document.getElementById("prob-bar").className      = "h-4 rounded-full transition-all duration-700 " + cfg.bar;
+  document.getElementById("prob-label").textContent  = pct + "%";
+  const badge = document.getElementById("risk-badge");
+  badge.className   = "text-center py-4 rounded-xl font-bold text-lg tracking-wide mb-4 " + cfg.badge;
+  badge.textContent = data.is_fraud ? "HIGH RISK — FRAUD DETECTED" : cfg.label;
+  document.getElementById("detail-prob").textContent = data.fraud_probability.toFixed(4);
+  document.getElementById("detail-thr").textContent  = data.threshold.toFixed(4);
+  const dec = document.getElementById("detail-dec");
+  dec.textContent = data.is_fraud ? "FRAUD" : "LEGITIMATE";
+  dec.className   = "py-2 text-right font-semibold " + cfg.dec;
+  document.getElementById("result-panel").classList.remove("hidden");
+}
+
+// ── Batch ─────────────────────────────────────────────────────────────────────
+let selectedFile = null;
+let batchData    = [];
+
+function handleFile(input) {
+  selectedFile = input.files[0];
+  document.getElementById("file-name").textContent = selectedFile?.name ?? "";
+  const btn = document.getElementById("batch-btn");
+  btn.disabled = !selectedFile;
+  btn.classList.toggle("opacity-50",       !selectedFile);
+  btn.classList.toggle("cursor-not-allowed", !selectedFile);
+}
+
+async function submitBatch() {
+  const errEl = document.getElementById("batch-error");
+  errEl.classList.add("hidden");
+  if (!selectedFile) return;
+  setLoading("batch", true);
+  try {
+    const form = new FormData();
+    form.append("file", selectedFile);
+    const res  = await fetch("/predict-batch", { method: "POST", body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Batch prediction failed.");
+    batchData = data;
+    renderBatch(data);
+  } catch (ex) {
+    errEl.textContent = ex.message;
+    errEl.classList.remove("hidden");
+  } finally {
+    setLoading("batch", false);
+  }
+}
+
+function renderBatch(rows) {
+  if (!rows.length) return;
+  const keys = Object.keys(rows[0]);
+  document.getElementById("batch-head").innerHTML =
+    keys.map(k => `<th class="px-3 py-2 text-left whitespace-nowrap">${k}</th>`).join("");
+  document.getElementById("batch-body").innerHTML =
+    rows.map(row => {
+      const bg = row.is_fraud ? "bg-red-50" : "bg-green-50";
+      return `<tr class="${bg} border-b border-slate-100">${
+        keys.map(k => {
+          let v = row[k];
+          if (k === "fraud_probability") v = (v * 100).toFixed(1) + "%";
+          if (k === "is_fraud")          v = v ? "FRAUD" : "LEGITIMATE";
+          return `<td class="px-3 py-2 whitespace-nowrap">${v}</td>`;
+        }).join("")
+      }</tr>`;
+    }).join("");
+  const fraudCount = rows.filter(r => r.is_fraud).length;
+  document.getElementById("batch-count").textContent =
+    `${rows.length} transactions — ${fraudCount} fraud, ${rows.length - fraudCount} legitimate`;
+  document.getElementById("batch-results").classList.remove("hidden");
+}
+
+function downloadCSV() {
+  if (!batchData.length) return;
+  const keys = Object.keys(batchData[0]);
+  const csv  = [keys.join(","), ...batchData.map(r => keys.map(k => r[k]).join(","))].join("\n");
+  const a    = Object.assign(document.createElement("a"), {
+    href:     URL.createObjectURL(new Blob([csv], { type: "text/csv" })),
+    download: "fraud_predictions.csv",
+  });
+  a.click();
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function setLoading(tab, on) {
+  document.getElementById(`${tab}-btn`).disabled = on;
+  document.getElementById(`${tab}-spinner`).classList.toggle("hidden", !on);
+  document.getElementById(`${tab}-btn-text`).textContent =
+    on ? "Analysing…" : tab === "single" ? "Analyse Transaction" : "Analyse Batch";
+}
+</script>
+</body>
+</html>
