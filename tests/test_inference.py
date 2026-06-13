@@ -65,3 +65,19 @@ def test_predict_keys():
 def test_predict_fraud_flag():
     assert _make_predictor(0.8).predict(SAMPLE_TX)["is_fraud"] is True
     assert _make_predictor(0.2).predict(SAMPLE_TX)["is_fraud"] is False
+
+
+def test_predict_batch():
+    from inference import Predictor
+    n = 2
+    model = MagicMock()
+    model.predict_proba.return_value = np.array([[0.2, 0.8], [0.7, 0.3]])
+    scaler = MagicMock()
+    scaler.transform.return_value = np.zeros((n, len(FEAT_NAMES)))
+    scaler.feature_names_in_ = FEAT_NAMES
+    p = Predictor(model=model, scaler=scaler,
+                  large_tx_threshold=THRESHOLD, optimal_threshold=0.5)
+    results = p.predict_batch(pd.DataFrame([SAMPLE_TX, SAMPLE_TX]))
+    assert len(results) == 2
+    assert results[0]["is_fraud"] is True   # 0.8 >= 0.5
+    assert results[1]["is_fraud"] is False  # 0.3 < 0.5

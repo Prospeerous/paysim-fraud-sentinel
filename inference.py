@@ -47,10 +47,24 @@ class Predictor:
         }
 
     def predict_batch(self, df: pd.DataFrame) -> list[dict]:
-        return [self.predict(row.to_dict()) for _, row in df.iterrows()]
+        X      = self._prepare(df)
+        probas = self.model.predict_proba(X)[:, 1]
+        return [
+            {
+                "fraud_probability": round(float(p), 4),
+                "is_fraud":          bool(p >= self.optimal_threshold),
+                "threshold":         round(self.optimal_threshold, 4),
+            }
+            for p in probas
+        ]
 
 
 def load_predictor() -> Predictor:
+    for path in [MODELS_DIR / "best_model.joblib",
+                 MODELS_DIR / "scaler.joblib",
+                 MODELS_DIR / "feature_params.json"]:
+        if not path.exists():
+            raise FileNotFoundError(f"Model artifact not found: {path}")
     params = json.loads((MODELS_DIR / "feature_params.json").read_text())
     return Predictor(
         model               = joblib.load(MODELS_DIR / "best_model.joblib"),
